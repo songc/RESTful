@@ -9,6 +9,7 @@ import spacy
 
 app = Flask(__name__)
 
+# MySQL 数据库配置
 app.config['SQLALCHEMY_DATABASE_URI'] = "mysql://root:455@localhost:3306/flaskdb"
 
 db = SQLAlchemy(app)
@@ -17,7 +18,7 @@ es = Elasticsearch()
 
 nlp = spacy.load('en_vectors_web_lg')
 
-
+# 用户实体对象
 class User(db.Model):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -46,7 +47,7 @@ class User(db.Model):
         user_dict['address'] = self.address
         return user_dict
 
-
+# 用户投票实体对象
 class UserVotes(db.Model):
     __tablename__ = 'user_votes'
     user_id = db.Column(db.Integer, primary_key=True)
@@ -61,10 +62,10 @@ class UserVotes(db.Model):
     def __repr__(self):
         return '<Votes %d  %r>' % (self.user_id, self.service_id)
 
-
+# 创建数据库
 db.create_all()
 
-
+# 用户注册接口
 @app.route('/register', methods=['POST'])
 def register():
     form = request.get_json()
@@ -79,7 +80,7 @@ def register():
     db.session.commit()
     return jsonify(user.to_dict())
 
-
+# 用户登录接口
 @app.route('/login', methods=['POST'])
 def login():
     form = request.get_json()
@@ -91,7 +92,7 @@ def login():
 def hello_world():
     return 'Hello World!'
 
-
+# 用户关键词查询接口
 @app.route('/query', )
 def query():
     search_word = request.args.get('q')
@@ -105,10 +106,10 @@ def query():
             }
         }
     }
-    res = es.search(index='myrestful', doc_type='rest', body=body, from_=num, size=size)
+    res = es.search(index='myrestful2', doc_type='rest', body=body, from_=num, size=size)
     return jsonify(res)
 
-
+# 热点查询接口
 @app.route('/hottopic')
 def hot_topic():
     size = request.args.get('size')
@@ -117,7 +118,7 @@ def hot_topic():
             "function_score": {
                 "script_score": {
                     "script": {
-                        "inline": "(doc['votes'].value+2.0)/Math.pow((params.time-doc['creation_date'].value)/3600,2)",
+                        "inline": "(doc['votes'].value+2.0)/Math.pow((params.time-doc['creation_date'].value)/3600,1)",
                         "params": {
                             "time": time.time()
                         }
@@ -126,10 +127,10 @@ def hot_topic():
             }
         }
     }
-    res = es.search(index='myrestful', doc_type='rest', body=body, from_=0, size=size)
+    res = es.search(index='myrestful2', doc_type='rest', body=body, from_=0, size=size)
     return jsonify(res)
 
-
+# 相似度推荐接口
 @app.route('/sim', methods=['GET'])
 def sim():
     id = request.args.get('id')
@@ -142,7 +143,7 @@ def sim():
         },
         "_source": "topics_and_keywords"
     }
-    res = es.search(index='myrestful', doc_type='rest', body=body)
+    res = es.search(index='myrestful2', doc_type='rest', body=body)
     words = res['hits']['hits'][0]['_source']['topics_and_keywords']
     doc_target = nlp(' '.join(words))
 
@@ -154,7 +155,7 @@ def sim():
         "_source": "topics_and_keywords",
         "size": 100
     }
-    for hit in elasticsearch.helpers.scan(es, index='myrestful', doc_type='rest', query=query):
+    for hit in elasticsearch.helpers.scan(es, index='myrestful2', doc_type='rest', query=query):
         service = dict()
         service['_id'] = hit['_id']
         doc_temp = nlp(' '.join(hit['_source']['topics_and_keywords']))
@@ -169,7 +170,7 @@ def sim():
             }
         },
     }
-    res = es.search(index='myrestful', doc_type='rest', body=body)
+    res = es.search(index='myrestful2', doc_type='rest', body=body)
     return jsonify(res)
 
 
